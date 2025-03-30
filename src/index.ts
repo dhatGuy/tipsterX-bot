@@ -4,16 +4,15 @@ import OpenAI from 'openai';
 import telegramifyMarkdown from 'telegramify-markdown';
 import { ResponseCreateParamsNonStreaming, ResponseInput } from 'openai/src/resources/responses/responses.js';
 
-// Extend the Cloudflare Env interface to include our KV namespaces.
 export interface Env {
 	BOT_INFO: string;
 	BOT_TOKEN: string;
 	OPENAI_API_KEY: string;
 	CONVERSATION_HISTORY: KVNamespace;
 	LEADERBOARD: KVNamespace;
+	USER_LANGUAGE: KVNamespace;
 }
 
-// Define a type for conversation messages.
 type MessageRole = 'user' | 'assistant';
 interface ConversationMessage {
 	role: MessageRole;
@@ -73,7 +72,6 @@ async function updateLeaderboard(env: Env, username: string): Promise<void> {
 // Returns a conversation key based on chat type.
 const getConversationKey = (ctx: Context): string => (ctx.chat?.type === 'group' ? `group:${ctx.chat.id}` : `user:${ctx.from?.id}`);
 
-// Detect language and default to Spanish.
 const lngDetector = new LanguageDetect();
 const getLanguage = (text: string): string => {
 	const langs = lngDetector.detect(text, 4);
@@ -81,7 +79,6 @@ const getLanguage = (text: string): string => {
 	return lang.toLowerCase() === 'english' ? 'en' : 'es';
 };
 
-// A helper to send Telegram replies with markdown formatting.
 const sendReply = async (ctx: Context, replyText: string): Promise<void> => {
 	try {
 		await ctx.replyWithChatAction('typing');
@@ -143,6 +140,21 @@ async function generateAIResponse(
 		console.error('Error generating AI response:', err);
 		return 'There was an error generating a response. Please try again later.';
 	}
+}
+
+const supportedLanguages = [
+	{ code: 'en', label: 'English' },
+	{ code: 'es', label: 'Spanish' },
+	{ code: 'pt', label: 'Portuguese' },
+	{ code: 'ko', label: 'Korean' },
+];
+
+// KV helper functions for user language preferences.
+async function setUserLanguage(env: Env, userId: number, lang: string): Promise<void> {
+	await env.USER_LANGUAGE.put(`user_language:${userId}`, lang);
+}
+async function getUserLanguage(env: Env, userId: number): Promise<string | null> {
+	return await env.USER_LANGUAGE.get(`user_language:${userId}`);
 }
 
 //
@@ -223,8 +235,16 @@ You are designed to be a comprehensive and engaging resource for users intereste
 
 		// COMMAND: /start
 		bot.command('start', async (ctx: Context) => {
-			const lang = getLanguage(ctx.msg?.text || '');
-			await ctx.reply(lang === 'es' ? '¡Bienvenido a TipsterX AI!' : 'Welcome to TipsterX AI!');
+			await ctx.reply('Welcome! Please select your preferred language:', {
+				reply_markup: {
+					inline_keyboard: [
+						supportedLanguages.map((lang) => ({
+							text: lang.label,
+							callback_data: `set_language:${lang.code}`,
+						})),
+					],
+				},
+			});
 		});
 
 		// COMMAND: /tips – Provide a betting tip.
@@ -253,6 +273,20 @@ You are designed to be a comprehensive and engaging resource for users intereste
 			const lang = getLanguage(ctx.msg?.text || '');
 			const memeText = await generateAIResponse(ctx, `Generate a short, funny meme caption about ${topic}`, lang, openai, PRE_PROMPT, env);
 			await ctx.reply(memeText);
+		});
+
+		// COMMAND: /language – Select language.
+		bot.command('language', async (ctx: Context) => {
+			await ctx.reply('Please select your language:', {
+				reply_markup: {
+					inline_keyboard: [
+						supportedLanguages.map((lang) => ({
+							text: lang.label,
+							callback_data: `set_language:${lang.code}`,
+						})),
+					],
+				},
+			});
 		});
 
 		// COMMAND: /poll – Create a poll.
@@ -300,6 +334,24 @@ You are designed to be a comprehensive and engaging resource for users intereste
 			const lang = getLanguage(ctx.msg?.text || '');
 			const answer = await generateAIResponse(ctx, ctx.msg?.text || '', lang, openai, PRE_PROMPT, env);
 			await sendReply(ctx, answer);
+		});
+
+		// Handle callback for language selection
+		bot.on('callback_query:data', async (ctx: Context) => {
+			const data = ctx?.callbackQuery?.data || '';
+			if (data.startsWith('set_language:')) {
+				const langCode = data.split(':')[1];
+				const selected = supportedLanguages.find((lang) => lang.code === langCode);
+				if (ctx?.callbackQuery?.from && selected) {
+					await setUserLanguage(env, ctx.callbackQuery.from.id, langCode);
+					await ctx.answerCallbackQuery({ text: `Language set to ${selected.label}.` });
+					if (ctx.chat?.type === 'private') {
+						await ctx.reply(`${selected.label} language selected.`);
+					}
+				} else {
+					await ctx.answerCallbackQuery({ text: 'Unknown language selected.' });
+				}
+			}
 		});
 
 		// Global bot error handling.

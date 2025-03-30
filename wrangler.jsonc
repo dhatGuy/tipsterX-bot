@@ -34,12 +34,16 @@
 
 	"kv_namespaces": [
 		{
-			"id": "a567647ceed541e3a7d4d277dc582bf8",
+			"id": "7d0bb71002754cf4846bbde66132e40a",
 			"binding": "LEADERBOARD",
 		},
 		{
-			"id": "952295ad96854a049031a874e72773e8",
+			"id": "e6045000290c4eb3af5c7bd067cf58d7",
 			"binding": "CONVERSATION_HISTORY",
+		},
+		{
+			"id": "216de506e5e34bbc875920a9ddf04b5a",
+			"binding": "USER_LANGUAGE",
 		},
 	],
 	/**
