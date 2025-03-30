@@ -151,6 +151,11 @@ async function generateAIResponse(
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		const url = new URL(request.url);
+		if (request.method === 'GET' && url.pathname === '/') {
+			return new Response('TipsterX Bot is running on Cloudflare Workers.', { status: 200 });
+		}
+
 		// Initialize the bot with the provided token and bot info.
 		const botInfo = JSON.parse(env.BOT_INFO);
 		const bot = new Bot(env.BOT_TOKEN, { botInfo });
