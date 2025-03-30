@@ -94,21 +94,15 @@ const sendReply = async (ctx: Context, replyText: string): Promise<void> => {
 // AI RESPONSE GENERATION
 //
 
-async function generateAIResponse(
-	ctx: Context,
-	prompt: string,
-	lang: string,
-	openai: OpenAI,
-	PRE_PROMPT: string,
-	env: Env,
-): Promise<string> {
+async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, PRE_PROMPT: string, env: Env): Promise<string> {
 	const key = getConversationKey(ctx);
 	const history = await getConversationHistory(env, key);
+	const language = getUserLanguage(env, ctx.from?.id);
 
 	// Assemble input with any prior history.
 	const input: ResponseCreateParamsNonStreaming['input'] = [
 		...history, // conversation history from KV.
-		{ role: 'user', content: `${prompt} (respond in ${lang === 'es' ? 'Spanish' : 'English'})` },
+		{ role: 'user', content: `${prompt}` },
 	];
 
 	// If replying to a message that has text, add it as context.
@@ -129,7 +123,7 @@ async function generateAIResponse(
 			model: 'gpt-4o',
 			input,
 			temperature: 0.5,
-			instructions: PRE_PROMPT,
+			instructions: `${PRE_PROMPT} respond in ${language} unless specified otherwise.`,
 			tools: [{ type: 'web_search_preview' }],
 		});
 		const replyText = response.output_text || 'Error generating response';
@@ -153,8 +147,9 @@ const supportedLanguages = [
 async function setUserLanguage(env: Env, userId: number, lang: string): Promise<void> {
 	await env.USER_LANGUAGE.put(`user_language:${userId}`, lang);
 }
-async function getUserLanguage(env: Env, userId: number): Promise<string | null> {
-	return await env.USER_LANGUAGE.get(`user_language:${userId}`);
+async function getUserLanguage(env: Env, userId: number | undefined): Promise<string> {
+	if (!userId) return 'es';
+	return (await env.USER_LANGUAGE.get(`user_language:${userId}`)) || 'es';
 }
 
 //
@@ -250,8 +245,7 @@ You are designed to be a comprehensive and engaging resource for users intereste
 		// COMMAND: /tips – Provide a betting tip.
 		bot.command('tips', async (ctx: Context) => {
 			const sport = (ctx.match || 'football').trim();
-			const lang = getLanguage(ctx.msg?.text || '');
-			const tip = await generateAIResponse(ctx, `Provide a betting tip for ${sport}`, lang, openai, PRE_PROMPT, env);
+			const tip = await generateAIResponse(ctx, `Provide a betting tip for ${sport}`, openai, PRE_PROMPT, env);
 			await ctx.reply(tip);
 		});
 
@@ -263,15 +257,33 @@ You are designed to be a comprehensive and engaging resource for users intereste
 				.slice(0, 5)
 				.map(([user, score], i) => `${i + 1}. ${user}: ${score}`)
 				.join('\n');
-			const lang = getLanguage(ctx.msg?.text || '');
-			await ctx.reply(sorted || (lang === 'es' ? 'Tabla vacía' : 'Leaderboard empty'));
+
+			const lang = await getUserLanguage(env, ctx.from?.id);
+			let msg = '';
+			switch (lang) {
+				case 'es':
+					msg = 'Tabla vacía';
+					break;
+				case 'en':
+					msg = 'Leaderboard empty';
+					break;
+				case 'pt':
+					msg = 'Placar vazio';
+					break;
+				case 'ko':
+					msg = '리더보드 비어있음';
+					break;
+				default:
+					msg = 'Leaderboard empty';
+					break;
+			}
+			await ctx.reply(sorted || msg);
 		});
 
 		// COMMAND: /meme – Generate a funny meme caption.
 		bot.command('meme', async (ctx: Context) => {
 			const topic = (ctx.match || 'funny').trim();
-			const lang = getLanguage(ctx.msg?.text || '');
-			const memeText = await generateAIResponse(ctx, `Generate a short, funny meme caption about ${topic}`, lang, openai, PRE_PROMPT, env);
+			const memeText = await generateAIResponse(ctx, `Generate a short, funny meme caption about ${topic}`, openai, PRE_PROMPT, env);
 			await ctx.reply(memeText);
 		});
 
@@ -331,8 +343,7 @@ You are designed to be a comprehensive and engaging resource for users intereste
 			// In groups, only respond when mentioned or when replying to the bot.
 			if (ctx.chat?.type === 'group' && !(hasMention || isReplyToBot)) return;
 
-			const lang = getLanguage(ctx.msg?.text || '');
-			const answer = await generateAIResponse(ctx, ctx.msg?.text || '', lang, openai, PRE_PROMPT, env);
+			const answer = await generateAIResponse(ctx, ctx.msg?.text || '', openai, PRE_PROMPT, env);
 			await sendReply(ctx, answer);
 		});
 
