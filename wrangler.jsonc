@@ -31,6 +31,17 @@
 	"vars": {
 		"BOT_INFO": "{\"id\":7353689901,\"is_bot\":true,\"first_name\":\"TipsterX\",\"username\":\"tipster_x_bot\",\"can_join_groups\":true,\"can_read_all_group_messages\":false,\"supports_inline_queries\":false,\"can_connect_to_business\":false,\"has_main_web_app\":false}",
 	},
+
+	"kv_namespaces": [
+		{
+			"id": "a567647ceed541e3a7d4d277dc582bf8",
+			"binding": "LEADERBOARD",
+		},
+		{
+			"id": "952295ad96854a049031a874e72773e8",
+			"binding": "CONVERSATION_HISTORY",
+		},
+	],
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
