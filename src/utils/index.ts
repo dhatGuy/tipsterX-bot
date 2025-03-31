@@ -171,7 +171,7 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		// Send to group chats
 		for (const [id, chat] of Object.entries(activeChats.groups)) {
 			try {
-				const res = await bot.api.sendMessage('-4772350806', telegramifyMarkdown(formattedUpdate, 'escape'), {
+				const res = await bot.api.sendMessage(id, telegramifyMarkdown(formattedUpdate, 'escape'), {
 					parse_mode: 'MarkdownV2',
 				});
 			} catch (error) {
