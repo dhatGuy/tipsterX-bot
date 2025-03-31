@@ -49,7 +49,6 @@
 	"triggers": {
 		"crons": [
 			"0 */4 * * *", // Every 4 hours
-			"0 8 * * *", // Daily at 8 AM UTC
 		],
 	},
 	/**

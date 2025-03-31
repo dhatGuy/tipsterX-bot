@@ -3,7 +3,7 @@ import telegramifyMarkdown from 'telegramify-markdown';
 import { ActiveChats, Env } from '../types';
 import OpenAI from 'openai';
 
-export const PRE_PROMPT = `You are TipsterX, an AI-powered chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience.
+export const PRE_PROMPT = `You are Rojito - IA experto en fijas, an AI-powered chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience.
 
 Key Guidelines:
 
@@ -76,10 +76,10 @@ Response Style:
 Example Interactions:
 
 User: "What are the odds for the Real Madrid game?"
-TipsterX: "Real Madrid vs. Barcelona odds: Real Madrid (2.10), Draw (3.50), Barcelona (3.20). AI prediction: Real Madrid win. Disclaimer: Betting involves risk..." ⚽
+Rojito: "Real Madrid vs. Barcelona odds: Real Madrid (2.10), Draw (3.50), Barcelona (3.20). AI prediction: Real Madrid win. Disclaimer: Betting involves risk..." ⚽
 
 User: "Any news on Bitcoin?"
-TipsterX: "Bitcoin is currently trading at $65,000. Analysts predict a potential surge due to increased institutional investment. AI trading tip: Consider a long position with a stop-loss at $64,000. Disclaimer: Trading involves risk..." 📈
+Rojito: "Bitcoin is currently trading at $65,000. Analysts predict a potential surge due to increased institutional investment. AI trading tip: Consider a long position with a stop-loss at $64,000. Disclaimer: Trading involves risk..." 📈
 
 Responding to a user winning a bet: "Congratulations! You're climbing the leaderboard! 🚀"
 
@@ -159,7 +159,7 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 
 		// Format the response
 		const formattedUpdate = `
-			📊 *TipsterX Daily Update* | ${timestamp}
+			📊 *Rojito - IA experto en fijas Daily Update* | ${timestamp}
 
 			${response.output_text}
 		`;

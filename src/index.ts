@@ -141,7 +141,7 @@ export default {
 		const url = new URL(request.url);
 
 		if (request.method === 'GET' && url.pathname === '/') {
-			return new Response('TipsterX Bot is running on Cloudflare Workers.', { status: 200 });
+			return new Response('Rojito - IA experto en fijas is running on Cloudflare Workers.', { status: 200 });
 		}
 
 		// Handle Cron triggers
