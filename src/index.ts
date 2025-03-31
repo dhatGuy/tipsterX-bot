@@ -1,23 +1,9 @@
 import { Bot, Context, webhookCallback } from 'grammy';
 import LanguageDetect from 'languagedetect';
 import OpenAI from 'openai';
-import telegramifyMarkdown from 'telegramify-markdown';
-import { ResponseCreateParamsNonStreaming, ResponseInput } from 'openai/src/resources/responses/responses.js';
-
-export interface Env {
-	BOT_INFO: string;
-	BOT_TOKEN: string;
-	OPENAI_API_KEY: string;
-	CONVERSATION_HISTORY: KVNamespace;
-	LEADERBOARD: KVNamespace;
-	USER_LANGUAGE: KVNamespace;
-}
-
-type MessageRole = 'user' | 'assistant';
-interface ConversationMessage {
-	role: MessageRole;
-	content: string;
-}
+import { ResponseCreateParamsNonStreaming } from 'openai/src/resources/responses/responses.js';
+import { PRE_PROMPT, sendCombinedUpdate, sendReply } from './utils';
+import { ConversationMessage, Env } from './types';
 
 //
 // KV STORAGE FUNCTIONS (for conversation history)
@@ -79,17 +65,6 @@ const getLanguage = (text: string): string => {
 	return lang.toLowerCase() === 'english' ? 'en' : 'es';
 };
 
-const sendReply = async (ctx: Context, replyText: string): Promise<void> => {
-	try {
-		await ctx.replyWithChatAction('typing');
-		await ctx.reply(telegramifyMarkdown(replyText, 'escape'), {
-			parse_mode: 'MarkdownV2',
-		});
-	} catch (error) {
-		console.error('Error sending reply:', error);
-	}
-};
-
 //
 // AI RESPONSE GENERATION
 //
@@ -97,12 +72,12 @@ const sendReply = async (ctx: Context, replyText: string): Promise<void> => {
 async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, PRE_PROMPT: string, env: Env): Promise<string> {
 	const key = getConversationKey(ctx);
 	const history = await getConversationHistory(env, key);
-	const language = getUserLanguage(env, ctx.from?.id);
+	const language = await getUserLanguage(env, ctx.from?.id);
 
 	// Assemble input with any prior history.
 	const input: ResponseCreateParamsNonStreaming['input'] = [
 		...history, // conversation history from KV.
-		{ role: 'user', content: `${prompt}` },
+		{ role: 'user', content: `${prompt} respond in ${supportedLanguages.find((lang) => lang.code === language)?.label}` },
 	];
 
 	// If replying to a message that has text, add it as context.
@@ -123,7 +98,7 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 			model: 'gpt-4o',
 			input,
 			temperature: 0.5,
-			instructions: `${PRE_PROMPT} respond in ${language} unless specified otherwise.`,
+			instructions: `${PRE_PROMPT}.`,
 			tools: [{ type: 'web_search_preview' }],
 		});
 		const replyText = response.output_text || 'Error generating response';
@@ -158,62 +133,29 @@ async function getUserLanguage(env: Env, userId: number | undefined): Promise<st
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		const url = new URL(request.url);
-		if (request.method === 'GET' && url.pathname === '/') {
-			return new Response('TipsterX Bot is running on Cloudflare Workers.', { status: 200 });
-		}
-
 		// Initialize the bot with the provided token and bot info.
 		const botInfo = JSON.parse(env.BOT_INFO);
 		const bot = new Bot(env.BOT_TOKEN, { botInfo });
 		const BOT_USERNAME = botInfo.username;
 		const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+		const url = new URL(request.url);
 
-		// Pre-prompt defining the bot's role and guidelines.
-		const PRE_PROMPT = `You are TipsterX, an AI-powered chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience.
+		if (request.method === 'GET' && url.pathname === '/') {
+			return new Response('TipsterX Bot is running on Cloudflare Workers.', { status: 200 });
+		}
 
-Key Guidelines:
+		// Handle Cron triggers
+		if (request.headers.get('Cron')) {
+			const currentHour = new Date().getUTCHours();
 
-Personality: You are knowledgeable, helpful, and engaging, with a touch of humor. Use emojis to enhance your messages and maintain a friendly tone. Generate memes when appropriate, but do not generate any NSFW or offensive content.
+			// Send combined updates every 4 hours
+			if (currentHour % 4 === 0) {
+				await sendCombinedUpdate(bot, openai, env);
+				// await cleanInactiveChats(env); // Clean inactive chats once per day
+			}
 
-Functionality:
-• Sports Betting & Match Insights: Provide live scores, past results, and AI-powered betting tips for major leagues (Premier League, La Liga, Champions League, NBA, NFL, etc.). Offer real-time odds updates.
-• Trading & Finance Trends: Offer insights on crypto, stocks, and market trends. Generate AI-driven trading tips based on live data.
-• Engagement: Share AI-generated memes related to sports & betting. Maintain leaderboards to track top bettors and active users. Run polls and challenges to encourage community participation.
-• Multi-Language Support: You can respond in English, Spanish, Portuguese, and Korean. Detect the user's language and respond accordingly. If you cannot detect it, default to English.
-• Automated Updates: Send live sports and finance news updates every 4 hours. Provide pre-match insights and betting tips before significant games.
-
-Internet Search & Data Cleaning:
-• Search the internet for up-to-date data on sports betting, match results, odds, and financial trends.
-• Extract relevant and accurate information from reliable sources.
-• Clean the data by removing duplicates, irrelevant details, and outdated information.
-• Summarize the cleaned data into concise, actionable insights for users.
-• Always verify the credibility of sources before sharing information.
-
-Response Style:
-• Be concise and informative.
-• Use bullet points or numbered lists to present information clearly.
-• Incorporate relevant emojis to add personality and visual appeal.
-• When providing betting or trading tips, always include a disclaimer: "Disclaimer: Betting and trading involve risk. Only bet or trade what you can afford to lose."
-
-Example Interactions:
-
-User: "What are the odds for the Real Madrid game?"
-TipsterX: "Real Madrid vs. Barcelona odds: Real Madrid (2.10), Draw (3.50), Barcelona (3.20). AI prediction: Real Madrid win. Disclaimer: Betting involves risk..." ⚽
-
-User: "Any news on Bitcoin?"
-TipsterX: "Bitcoin is currently trading at $65,000. Analysts predict a potential surge due to increased institutional investment. AI trading tip: Consider a long position with a stop-loss at $64,000. Disclaimer: Trading involves risk..." 📈
-
-Responding to a user winning a bet: "Congratulations! You're climbing the leaderboard! 🚀"
-
-Important Considerations:
-• Prioritize accuracy and timeliness of information.
-• Never provide guaranteed wins or risk-free investments.
-• Adhere to ethical guidelines for gambling and financial advice.
-• Search the internet when necessary for updates and trends.
-
-You are designed to be a comprehensive and engaging resource for users interested in sports betting and financial trends. Keep the interactions fun, informative, and responsible.
-`;
+			return new Response('Scheduled updates completed', { status: 200 });
+		}
 
 		// Utility: Check if the bot is directly mentioned or replied to.
 		const isBotMentionedOrReplied = (ctx: Context): { hasMention: boolean; isReplyToBot: boolean } => {
@@ -356,9 +298,9 @@ You are designed to be a comprehensive and engaging resource for users intereste
 				if (ctx?.callbackQuery?.from && selected) {
 					await setUserLanguage(env, ctx.callbackQuery.from.id, langCode);
 					await ctx.answerCallbackQuery({ text: `Language set to ${selected.label}.` });
-					if (ctx.chat?.type === 'private') {
-						await ctx.reply(`${selected.label} language selected.`);
-					}
+					// if (ctx.chat?.type === 'private') {
+					// 	await ctx.reply(`${selected.label} language selected.`);
+					// }
 				} else {
 					await ctx.answerCallbackQuery({ text: 'Unknown language selected.' });
 				}

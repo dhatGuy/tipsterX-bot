@@ -46,6 +46,12 @@
 			"binding": "USER_LANGUAGE",
 		},
 	],
+	"triggers": {
+		"crons": [
+			"0 */4 * * *", // Every 4 hours
+			"0 8 * * *", // Daily at 8 AM UTC
+		],
+	},
 	/**
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
