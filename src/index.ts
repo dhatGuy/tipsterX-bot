@@ -2,7 +2,7 @@ import { Bot, Context, webhookCallback } from 'grammy';
 import LanguageDetect from 'languagedetect';
 import OpenAI from 'openai';
 import { ResponseCreateParamsNonStreaming } from 'openai/src/resources/responses/responses.js';
-import { PRE_PROMPT, sendCombinedUpdate, sendReply } from './utils';
+import { PRE_PROMPT, sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
 import { ConversationMessage, Env } from './types';
 
 //
@@ -132,6 +132,21 @@ async function getUserLanguage(env: Env, userId: number | undefined): Promise<st
 //
 
 export default {
+	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+		const botInfo = JSON.parse(env.BOT_INFO);
+		const bot = new Bot(env.BOT_TOKEN, { botInfo });
+		const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+		const currentHour = new Date().getUTCHours();
+		console.log(currentHour);
+
+		// Send combined updates every 4 hours
+		await sendCombinedUpdate(bot, openai, env);
+		if (currentHour % 4 === 0) {
+			// await cleanInactiveChats(env); // Clean inactive chats once per day
+		}
+
+		return new Response('Scheduled updates completed', { status: 200 });
+	},
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		// Initialize the bot with the provided token and bot info.
 		const botInfo = JSON.parse(env.BOT_INFO);
@@ -142,19 +157,6 @@ export default {
 
 		if (request.method === 'GET' && url.pathname === '/') {
 			return new Response('Rojito - IA experto en fijas is running on Cloudflare Workers.', { status: 200 });
-		}
-
-		// Handle Cron triggers
-		if (request.headers.get('Cron')) {
-			const currentHour = new Date().getUTCHours();
-
-			// Send combined updates every 4 hours
-			if (currentHour % 4 === 0) {
-				await sendCombinedUpdate(bot, openai, env);
-				// await cleanInactiveChats(env); // Clean inactive chats once per day
-			}
-
-			return new Response('Scheduled updates completed', { status: 200 });
 		}
 
 		// Utility: Check if the bot is directly mentioned or replied to.
@@ -273,6 +275,7 @@ export default {
 		bot.on('message', async (ctx: Context) => {
 			// Only process non-command messages.
 			if (ctx.msg?.text?.startsWith('/')) return;
+			await updateActiveChat(env, ctx);
 
 			if (ctx.from) {
 				// Update leaderboard in KV storage.

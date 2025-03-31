@@ -94,7 +94,7 @@ You are designed to be a comprehensive and engaging resource for users intereste
 
 export const sendReply = async (ctx: Context, replyText: string): Promise<void> => {
 	try {
-		await ctx.replyWithChatAction('typing');
+		// await ctx.replyWithChatAction('typing');
 		await ctx.reply(telegramifyMarkdown(replyText, 'escape'), {
 			parse_mode: 'MarkdownV2',
 		});
@@ -144,7 +144,7 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		2. MARKET UPDATE: Key financial markets, crypto trends, and significant market movements.
 		3. PRE-MATCH INSIGHTS: Analysis and betting insights for upcoming major sports events.
 
-		Format each section clearly and concisely. Let the user know another update will be available in 4 hours.`;
+		Format each section clearly and concisely. Let the user know another update will be available in 4 hours. I want up-to-date information, so search the internet for this. Add a title similar to this: 📊 Rojito - IA experto en fijas Update | (${new Date().toUTCString()})`;
 
 		// Single API call for all updates
 		const response = await openai.responses.create({
@@ -155,14 +155,8 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 			tools: [{ type: 'web_search_preview' }],
 		});
 
-		const timestamp = new Date().toUTCString();
-
 		// Format the response
-		const formattedUpdate = `
-			📊 *Rojito - IA experto en fijas Daily Update* | ${timestamp}
-
-			${response.output_text}
-		`;
+		const formattedUpdate = `${response.output_text}`;
 
 		// Store the update
 		const combinedUpdate = {
@@ -177,7 +171,7 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		// Send to group chats
 		for (const [id, chat] of Object.entries(activeChats.groups)) {
 			try {
-				await bot.api.sendMessage(id, formattedUpdate, {
+				const res = await bot.api.sendMessage('-4772350806', telegramifyMarkdown(formattedUpdate, 'escape'), {
 					parse_mode: 'MarkdownV2',
 				});
 			} catch (error) {
