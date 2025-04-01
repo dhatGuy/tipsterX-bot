@@ -144,7 +144,10 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		2. MARKET UPDATE: Key financial markets, crypto trends, and significant market movements.
 		3. PRE-MATCH INSIGHTS: Analysis and betting insights for upcoming major sports events.
 
-		Format each section clearly and concisely. Let the user know another update will be available in 4 hours. I want up-to-date information, so search the internet for this. Add a title similar to this: 📊 Rojito - IA experto en fijas Update | (${new Date().toUTCString()})`;
+		Format each section clearly and concisely. Let the user know another update will be available in 4 hours. I want up-to-date information, so search the internet for this. Add a title similar to this: 📊 Rojito - IA experto en fijas Update | (${new Date().toUTCString()})
+
+		Again, make sure you search the internet to get accurate and up-to-date information for each section. Ensure that the information is reliable and trustworthy. Verify the sources and cross-check the data before providing the information.
+		`;
 
 		// Single API call for all updates
 		const response = await openai.responses.create({

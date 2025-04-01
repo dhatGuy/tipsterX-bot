@@ -137,11 +137,10 @@ export default {
 		const bot = new Bot(env.BOT_TOKEN, { botInfo });
 		const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 		const currentHour = new Date().getUTCHours();
-		console.log(currentHour);
 
 		// Send combined updates every 4 hours
-		await sendCombinedUpdate(bot, openai, env);
 		if (currentHour % 4 === 0) {
+			await sendCombinedUpdate(bot, openai, env);
 			// await cleanInactiveChats(env); // Clean inactive chats once per day
 		}
 

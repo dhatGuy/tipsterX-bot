@@ -36,14 +36,17 @@
 		{
 			"id": "7d0bb71002754cf4846bbde66132e40a",
 			"binding": "LEADERBOARD",
+			"preview_id": "05dad2d39d08424d901ad22605ed34a3",
 		},
 		{
 			"id": "e6045000290c4eb3af5c7bd067cf58d7",
 			"binding": "CONVERSATION_HISTORY",
+			"preview_id": "ebba7623ae8c4ad9a773656054e4cbab",
 		},
 		{
 			"id": "216de506e5e34bbc875920a9ddf04b5a",
 			"binding": "USER_LANGUAGE",
+			"preview_id": "49167da8272c46d39c2d09c1f629800e",
 		},
 	],
 	"triggers": {
