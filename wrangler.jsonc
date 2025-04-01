@@ -51,7 +51,8 @@
 	],
 	"triggers": {
 		"crons": [
-			"0 */4 * * *", // Every 4 hours
+			// every 24 hours
+			"0 */24 * * *",
 		],
 	},
 	/**
