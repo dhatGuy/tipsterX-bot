@@ -152,16 +152,24 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		`;
 
 		// Single API call for all updates
-		const response = await openai.responses.create({
-			model: 'gpt-4o',
-			input: [{ role: 'user', content: combinedPrompt }],
-			temperature: 0.7,
-			instructions: PRE_PROMPT,
-			tools: [{ type: 'web_search_preview' }],
+		const response = await openai.chat.completions.create({
+			temperature: 0.5,
+			model: 'gpt-4o-search-preview',
+			web_search_options: {},
+			messages: [
+				{
+					role: 'developer',
+					content: PRE_PROMPT,
+				},
+				{
+					role: 'user',
+					content: combinedPrompt,
+				},
+			],
 		});
 
 		// Format the response
-		const formattedUpdate = `${response.output_text}`;
+		const formattedUpdate = `${response.choices[0].message.content}`;
 
 		// Store the update
 		const combinedUpdate = {

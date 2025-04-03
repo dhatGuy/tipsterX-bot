@@ -94,14 +94,18 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 	await updateConversationHistory(env, key, { role: 'user', content: prompt });
 
 	try {
-		const response = await openai.responses.create({
-			model: 'gpt-4o',
-			input,
+		const response = await openai.chat.completions.create({
 			temperature: 0.5,
-			instructions: `${PRE_PROMPT}.`,
-			tools: [{ type: 'web_search_preview' }],
+			model: 'gpt-4o-search-preview',
+			web_search_options: {},
+			messages: [
+				{
+					role: 'developer',
+					content: PRE_PROMPT,
+				},
+			],
 		});
-		const replyText = response.output_text || 'Error generating response';
+		const replyText = response.choices[0].message.content || 'Error generating response';
 		// Update conversation history with the assistant's reply.
 		await updateConversationHistory(env, key, { role: 'assistant', content: replyText });
 		return replyText;
@@ -270,10 +274,21 @@ export default {
 			}
 		});
 
+		// Event: On user joining the group.
+		// bot.on('message:new_chat_members', async (ctx) => {
+		// 	const newMembers = ctx.message.new_chat_members;
+		// 	for (const member of newMembers) {
+		// 		const username = member.username || member.first_name || 'user';
+		// 		await ctx.reply(`Welcome to the group, ${username}!`);
+		// 	}
+		// });
+
 		// Event: On receiving a message (for engagement and AI responses).
 		bot.on('message', async (ctx: Context) => {
 			// Only process non-command messages.
 			if (ctx.msg?.text?.startsWith('/')) return;
+			// also don't respond for when user joins the group
+			if (ctx.chat?.type === 'group' && ctx.msg?.new_chat_members?.length) return;
 			await updateActiveChat(env, ctx);
 
 			if (ctx.from) {
