@@ -1,9 +1,9 @@
 import { Bot, Context, webhookCallback } from 'grammy';
 import LanguageDetect from 'languagedetect';
 import OpenAI from 'openai';
-import { ResponseCreateParamsNonStreaming } from 'openai/src/resources/responses/responses.js';
-import { PRE_PROMPT, sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
+import { ChatCompletionMessageParam } from 'openai/src/resources.js';
 import { ConversationMessage, Env } from './types';
+import { PRE_PROMPT, sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
 
 //
 // KV STORAGE FUNCTIONS (for conversation history)
@@ -75,9 +75,12 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 	const language = await getUserLanguage(env, ctx.from?.id);
 
 	// Assemble input with any prior history.
-	const input: ResponseCreateParamsNonStreaming['input'] = [
+	const input: ChatCompletionMessageParam[] = [
 		...history, // conversation history from KV.
-		{ role: 'user', content: `${prompt} respond in ${supportedLanguages.find((lang) => lang.code === language)?.label}` },
+		{
+			role: 'user',
+			content: `${prompt}. Respond in ${supportedLanguages.find((lang) => lang.code === language)?.label ?? 'Spanish'}. Don’t give information not mentioned in the CONTEXT INFORMATION.`,
+		},
 	];
 
 	// If replying to a message that has text, add it as context.
@@ -95,22 +98,25 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 
 	try {
 		const response = await openai.chat.completions.create({
-			temperature: 0.5,
+			// temperature:
 			model: 'gpt-4o-search-preview',
 			web_search_options: {},
 			messages: [
 				{
-					role: 'developer',
+					role: 'system',
 					content: PRE_PROMPT,
 				},
+				...input,
 			],
 		});
+
 		const replyText = response.choices[0].message.content || 'Error generating response';
 		// Update conversation history with the assistant's reply.
 		await updateConversationHistory(env, key, { role: 'assistant', content: replyText });
 		return replyText;
 	} catch (err) {
 		console.error('Error generating AI response:', err);
+		console.log(JSON.stringify(err));
 		return 'There was an error generating a response. Please try again later.';
 	}
 }
@@ -285,25 +291,27 @@ export default {
 
 		// Event: On receiving a message (for engagement and AI responses).
 		bot.on('message', async (ctx: Context) => {
+			console.log('CTX', JSON.stringify(ctx, null, 2));
+
+			const { hasMention, isReplyToBot } = isBotMentionedOrReplied(ctx);
 			// Only process non-command messages.
 			if (ctx.msg?.text?.startsWith('/')) return;
 			// also don't respond for when user joins the group
 			if (ctx.chat?.type === 'group' && ctx.msg?.new_chat_members?.length) return;
-			await updateActiveChat(env, ctx);
-
-			if (ctx.from) {
-				// Update leaderboard in KV storage.
-				const username = ctx.from.username || ctx.from.first_name || 'unknown';
-				await updateLeaderboard(env, username);
-			}
-
-			const { hasMention, isReplyToBot } = isBotMentionedOrReplied(ctx);
 
 			// In groups, only respond when mentioned or when replying to the bot.
-			if (ctx.chat?.type === 'group' && !(hasMention || isReplyToBot)) return;
+			if (ctx.chat?.type === 'group' && (hasMention || isReplyToBot)) {
+				await updateActiveChat(env, ctx);
 
-			const answer = await generateAIResponse(ctx, ctx.msg?.text || '', openai, PRE_PROMPT, env);
-			await sendReply(ctx, answer);
+				if (ctx.from) {
+					// Update leaderboard in KV storage.
+					const username = ctx.from.username || ctx.from.first_name || 'unknown';
+					await updateLeaderboard(env, username);
+				}
+
+				const answer = await generateAIResponse(ctx, ctx.msg?.text || '', openai, PRE_PROMPT, env);
+				await sendReply(ctx, answer);
+			}
 		});
 
 		// Handle callback for language selection
