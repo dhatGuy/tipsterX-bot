@@ -1,8 +1,9 @@
 import { Bot, type Context, webhookCallback } from 'grammy';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/src/resources.js';
+import { PRE_PROMPT } from './prompt';
 import type { ConversationMessage, Env } from './types';
-import { PRE_PROMPT, sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
+import { sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
 
 //
 // KV STORAGE FUNCTIONS (for conversation history)
@@ -70,13 +71,8 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 	const input: ChatCompletionMessageParam[] = [
 		...history, // conversation history from KV.
 		{
-			role: 'system',
-			content:
-				'You are Rojito - IA experto en fijas, a chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience. For all other questions that are out of the scope of these two sectors, please respond politely that the question is out of your scope. In this case, do not answer it',
-		},
-		{
 			role: 'user',
-			content: `${prompt}. Respond in ${supportedLanguages.find((lang) => lang.code === language)?.label ?? 'Spanish'}. Don’t give information not mentioned in the CONTEXT INFORMATION.`,
+			content: `Respond in ${supportedLanguages.find((lang) => lang.code === language)?.label ?? 'Spanish'}. ${prompt}`,
 		},
 	];
 
@@ -97,8 +93,15 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 		const response = await openai.chat.completions.create({
 			// temperature:
 			model: 'gpt-4o-search-preview',
-			web_search_options: {},
+			web_search_options: {
+				search_context_size: 'high',
+			},
 			messages: [
+				{
+					role: 'system',
+					content:
+						'You are Rojito - IA experto en fijas, a chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience. For all other questions that are out of the scope of these sectors, please respond with a polite message that the question is out of your scope.',
+				},
 				{
 					role: 'developer',
 					content: PRE_PROMPT,
@@ -174,7 +177,7 @@ export default {
 			const hasMention = entities.some((entity) => {
 				return entity.type === 'mention' && text.slice(entity.offset, entity.offset + entity.length) === `@${BOT_USERNAME}`;
 			});
-			const isReplyToBot = replyToMessage?.from?.username === BOT_USERNAME && replyToMessage?.from?.is_bot;
+			const isReplyToBot = Boolean(replyToMessage?.from?.username === BOT_USERNAME && replyToMessage?.from?.is_bot);
 			return { hasMention, isReplyToBot };
 		};
 
@@ -288,16 +291,15 @@ export default {
 
 		// Event: On receiving a message (for engagement and AI responses).
 		bot.on('message', async (ctx: Context) => {
-			console.log('CTX', JSON.stringify(ctx, null, 2));
-
 			const { hasMention, isReplyToBot } = isBotMentionedOrReplied(ctx);
 			// Only process non-command messages.
 			if (ctx.msg?.text?.startsWith('/')) return;
 			// also don't respond for when user joins the group
 			if (ctx.chat?.type === 'group' && ctx.msg?.new_chat_members?.length) return;
+			console.log('CTX', JSON.stringify(ctx, null, 2));
 
-			// In groups, only respond when mentioned or when replying to the bot.
-			if (ctx.chat?.type === 'group' && (hasMention || isReplyToBot)) {
+			// In groups, only respond when mentioned or when replying to the bot. In private chats, always reply
+			if ((ctx.chat?.type === 'group' && (hasMention || isReplyToBot)) || ctx.chat?.type === 'private') {
 				await updateActiveChat(env, ctx);
 
 				if (ctx.from) {
