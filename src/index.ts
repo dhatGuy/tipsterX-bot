@@ -1,6 +1,6 @@
 import { Bot, type Context, webhookCallback } from 'grammy';
 import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/src/resources.js';
+import type { ChatCompletionMessageParam } from 'openai/resources/index.js';
 import { PRE_PROMPT } from './prompt';
 import type { ConversationMessage, Env } from './types';
 import { sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
