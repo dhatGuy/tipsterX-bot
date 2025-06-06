@@ -1,8 +1,7 @@
-import { Bot, Context, webhookCallback } from 'grammy';
-import LanguageDetect from 'languagedetect';
+import { Bot, type Context, webhookCallback } from 'grammy';
 import OpenAI from 'openai';
-import { ChatCompletionMessageParam } from 'openai/src/resources.js';
-import { ConversationMessage, Env } from './types';
+import type { ChatCompletionMessageParam } from 'openai/src/resources.js';
+import type { ConversationMessage, Env } from './types';
 import { PRE_PROMPT, sendCombinedUpdate, sendReply, updateActiveChat } from './utils';
 
 //
@@ -58,13 +57,6 @@ async function updateLeaderboard(env: Env, username: string): Promise<void> {
 // Returns a conversation key based on chat type.
 const getConversationKey = (ctx: Context): string => (ctx.chat?.type === 'group' ? `group:${ctx.chat.id}` : `user:${ctx.from?.id}`);
 
-const lngDetector = new LanguageDetect();
-const getLanguage = (text: string): string => {
-	const langs = lngDetector.detect(text, 4);
-	const lang = langs[0]?.[0] || 'es';
-	return lang.toLowerCase() === 'english' ? 'en' : 'es';
-};
-
 //
 // AI RESPONSE GENERATION
 //
@@ -77,6 +69,11 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 	// Assemble input with any prior history.
 	const input: ChatCompletionMessageParam[] = [
 		...history, // conversation history from KV.
+		{
+			role: 'system',
+			content:
+				'You are Rojito - IA experto en fijas, a chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience. For all other questions that are out of the scope of these two sectors, please respond politely that the question is out of your scope. In this case, do not answer it',
+		},
 		{
 			role: 'user',
 			content: `${prompt}. Respond in ${supportedLanguages.find((lang) => lang.code === language)?.label ?? 'Spanish'}. Don’t give information not mentioned in the CONTEXT INFORMATION.`,
@@ -103,7 +100,7 @@ async function generateAIResponse(ctx: Context, prompt: string, openai: OpenAI, 
 			web_search_options: {},
 			messages: [
 				{
-					role: 'system',
+					role: 'developer',
 					content: PRE_PROMPT,
 				},
 				...input,
@@ -323,6 +320,8 @@ export default {
 				if (ctx?.callbackQuery?.from && selected) {
 					await setUserLanguage(env, ctx.callbackQuery.from.id, langCode);
 					await ctx.answerCallbackQuery({ text: `Language set to ${selected.label}.` });
+					// delete msg after
+					await ctx.deleteMessage();
 					// if (ctx.chat?.type === 'private') {
 					// 	await ctx.reply(`${selected.label} language selected.`);
 					// }

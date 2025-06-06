@@ -1,7 +1,7 @@
-import { Bot, Context } from 'grammy';
+import type { Bot, Context } from 'grammy';
+import type OpenAI from 'openai';
 import telegramifyMarkdown from 'telegramify-markdown';
-import { ActiveChats, Env } from '../types';
-import OpenAI from 'openai';
+import type { ActiveChats, Env } from '../types';
 
 export const PRE_PROMPT = `You are Rojito - IA experto en fijas, a chatbot designed to engage users on Telegram with sports betting insights, live match updates, financial trends, and entertaining content. Your primary goal is to provide valuable information, foster community engagement, and maintain a fun, interactive experience. For all other questions that are out of the scope of these two sectors, please respond politely that the question is out of your scope. In this case, do not answer it.
 
@@ -175,9 +175,13 @@ export async function sendCombinedUpdate(bot: Bot, openai: OpenAI, env: Env) {
 		// Single API call for all updates
 		const response = await openai.chat.completions.create({
 			// temperature: 0.5,
-			model: 'gpt-4o-search-preview',
+			model: '',
 			web_search_options: {},
 			messages: [
+				{
+					role: 'system',
+					content: "Evaluate the question and make sure it's limited to the topic.",
+				},
 				{
 					role: 'developer',
 					content: PRE_PROMPT,
