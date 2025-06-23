@@ -50,10 +50,10 @@
 		},
 	],
 	"triggers": {
-		"crons": [
-			// every 24 hours
-			"0 0 * * *",
-		],
+		// "crons": [
+		// 	// every 24 hours
+		// 	"0 0 * * *",
+		// ],
 	},
 	/**
 	 * Note: Use secrets to store sensitive data.
